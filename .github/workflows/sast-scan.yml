@@ -5,20 +5,20 @@ on:
     branches: [githubcicd]
 
 jobs:
-  test:
+  sast:
     runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        node-version: [16.x]
-
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "16"
 
       - name: Install Dependencies
-        if: steps.cache-nodemodules.outputs.cache-hit != 'true'
-        run: |
-          npm ci --force
+        run: npm ci --force
 
       - name: OWASP Dependency Check
         run: |
@@ -27,11 +27,18 @@ jobs:
 
       - name: Run scan with ODC
         run: |
-          dependency-check/bin/dependency-check.sh --project "bitcoin" --nvdApiKey ${{ secrets.WORKSHOP6_NVD_API_KEY }} --out . --scan .
+          chmod +x dependency-check/bin/dependency-check.sh
+          dependency-check/bin/dependency-check.sh \
+            --project "bitcoin" \
+            --nvdApiKey "${{ secrets.WORKSHOP6_NVD_API_KEY }}" \
+            --out . \
+            --scan . \
+            --disableOssIndex
 
       - name: Archive production artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: sast report
+          name: sast-report
           path: |
             ./dependency-check-report.html
